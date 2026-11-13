@@ -2,11 +2,14 @@
 #include <QtGlobal>
 #include <cmath>
 #include <algorithm>
+#include <QString>
 
-ResolutorColisiones::ResolutorColisiones(double coefRestitucionBolas)
-    : coefRestitucionBolas(coefRestitucionBolas)
+ResolutorColisiones::ResolutorColisiones(double coefBolas, double coefObstaculos)
+    : coefRestitucionBolas(coefBolas),
+    coefRestitucionObstaculos(coefObstaculos)
 {
 }
+
 
 double ResolutorColisiones::getCoefRestitucionBolas() const
 {
@@ -57,49 +60,42 @@ void ResolutorColisiones::resolverPared(Bola *bola, double ancho, double alto)
 }
 
 
-void ResolutorColisiones::resolverBolaBola(Bola *a, Bola *b)
+bool ResolutorColisiones::resolverBolaBola(Bola *a, Bola *b)
 {
     const double dx = b->getX() - a->getX();
     const double dy = b->getY() - a->getY();
     const double dist = std::sqrt(dx * dx + dy * dy);
-    const double sumaRadios = a->getRadio() + b->getRadio();
 
-    if (dist >= sumaRadios)
-        return; // no hay contacto
+    if (dist >= a->getRadio() + b->getRadio())
+        return false; // no hay contacto
 
-    // Normal unitaria que va de a hacia b
-    Vector2D n(1.0, 0.0);
-    if (dist > 1e-9)
-        n = Vector2D(dx / dist, dy / dist);
+    const double m1 = a->getMasa();
+    const double m2 = b->getMasa();
+    const double M  = m1 + m2;
 
-    // Separar las bolas para que no queden solapadas
-    const double solape = sumaRadios - dist;
-    a->setX(a->getX() - n.x * solape / 2.0);
-    a->setY(a->getY() - n.y * solape / 2.0);
-    b->setX(b->getX() + n.x * solape / 2.0);
-    b->setY(b->getY() + n.y * solape / 2.0);
+    const Vector2D v1 = a->obtenerVelocidad();
+    const Vector2D v2 = b->obtenerVelocidad();
 
-    Vector2D va = a->obtenerVelocidad();
-    Vector2D vb = b->obtenerVelocidad();
+    // Conservación del momento: m1·v1 + m2·v2 = (m1 + m2)·v'
+    const Vector2D vf((m1 * v1.x + m2 * v2.x) / M,
+                      (m1 * v1.y + m2 * v2.y) / M);
 
-    // Velocidad relativa proyectada sobre la normal (> 0 si se acercan)
-    const Vector2D vRel(va.x - vb.x, va.y - vb.y);
-    const double vn = vRel.productoPunto(n);
-    if (vn <= 0.0)
-        return; // ya se están alejando
+    // Nueva posición: centro de masa
+    const double xf = (m1 * a->getX() + m2 * b->getX()) / M;
+    const double yf = (m1 * a->getY() + m2 * b->getY()) / M;
 
-    const double e = coeficiente(TipoColision::INELASTICA);
-    const double ma = a->getMasa();
-    const double mb = b->getMasa();
-    const double j = (1.0 + e) * vn / (1.0 / ma + 1.0 / mb);
+    // Nuevo radio: se suman las áreas (π r² = π r1² + π r2²)
+    const double rf = std::sqrt(a->getRadio() * a->getRadio()
+                                + b->getRadio() * b->getRadio());
 
-    va.x -= (j / ma) * n.x;
-    va.y -= (j / ma) * n.y;
-    vb.x += (j / mb) * n.x;
-    vb.y += (j / mb) * n.y;
+    // La bola "a" se convierte en el cuerpo fusionado
+    a->setMasa(M);
+    a->setRadio(rf);
+    a->setX(xf);
+    a->setY(yf);
+    a->establecerVelocidad(vf);
 
-    a->establecerVelocidad(va);
-    b->establecerVelocidad(vb);
+    return true; // el Simulador debe eliminar "b"
 }
 
 void ResolutorColisiones::resolverBolaCuadrado(Bola *bola, const Cuadrado *cuadrado)
@@ -146,10 +142,28 @@ void ResolutorColisiones::resolverBolaCuadrado(Bola *bola, const Cuadrado *cuadr
     bola->setX(bx + n.x * empuje);
     bola->setY(by + n.y * empuje);
 
-    // Solo si la bola venía hacia el cuadrado
+    // Determinar con cuál lado chocó: el eje dominante de la normal
+    Vector2D nLado;
+    QString lado;
+    if (std::fabs(n.x) >= std::fabs(n.y)) {
+        nLado = Vector2D(n.x > 0 ? 1.0 : -1.0, 0.0);
+        lado = (n.x > 0) ? "derecho" : "izquierdo";
+    } else {
+        nLado = Vector2D(0.0, n.y > 0 ? 1.0 : -1.0);
+        lado = (n.y > 0) ? "inferior" : "superior";
+    }
+    Q_UNUSED(lado); // úsalo para registrar la colisión o con qDebug() << lado;
+
+    // Rebote inelástico: solo si la bola venía hacia el cuadrado
     const Vector2D v = bola->obtenerVelocidad();
-    if (v.productoPunto(n) < 0.0) {
-        // Completamente inelástica: m*v + M*0 = (m + M)*vf, con M -> infinito => vf = 0
-        bola->establecerVelocidad(Vector2D(0.0, 0.0));
+    const double vn = v.productoPunto(nLado);
+    if (vn < 0.0) {
+        const double e = coefRestitucionObstaculos;
+        const Vector2D vPerp(nLado.x * vn, nLado.y * vn);   // perpendicular al lado
+        const Vector2D vPar(v.x - vPerp.x, v.y - vPerp.y);  // paralela al lado
+
+        // v' = v∥ - e·v⊥
+        bola->establecerVelocidad(Vector2D(vPar.x - e * vPerp.x,
+                                           vPar.y - e * vPerp.y));
     }
 }

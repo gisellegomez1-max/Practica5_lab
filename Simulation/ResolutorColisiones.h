@@ -10,10 +10,11 @@
 class ResolutorColisiones
 {
 public:
-    explicit ResolutorColisiones(double coefRestitucionBolas = 0.7);
+    explicit ResolutorColisiones(double coefRestitucionBolas = 0.0,
+                                 double coefRestitucionObstaculos = 0.7);
 
     void resolverPared(Bola *bola, double ancho, double alto);
-    void resolverBolaBola(Bola *a, Bola *b);
+    bool resolverBolaBola(Bola *a, Bola *b);
     void resolverBolaCuadrado(Bola *bola, const Cuadrado *cuadrado);
 
     double getCoefRestitucionBolas() const;
@@ -21,7 +22,7 @@ public:
 
 private:
     double coefRestitucionBolas;
-
+    double coefRestitucionObstaculos;
     // Coeficiente de restitución asociado a cada tipo de colisión.
     double coeficiente(TipoColision tipo) const;
 };

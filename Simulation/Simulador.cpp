@@ -119,6 +119,17 @@ void Simulador::inicializar()
     }
 }
 
+void Simulador::reiniciar()
+{
+    for (Bola *b : bolas) delete b;
+    for (Cuadrado *c : cuadrados) delete c;
+    bolas.clear();
+    cuadrados.clear();
+
+    tiempo = 0.0;
+    inicializar();   // vuelve a crear los 4 cuadrados y las bolas
+}
+
 void Simulador::actualizar(double dt)
 {
     for (Bola *bola : bolas)
@@ -135,9 +146,17 @@ void Simulador::detectarColisiones()
         resolutor.resolverPared(bola, ancho, alto);
 
     // Bola - bola
-    for (int i = 0; i < bolas.size(); ++i)
-        for (int j = i + 1; j < bolas.size(); ++j)
-            resolutor.resolverBolaBola(bolas[i], bolas[j]);
+    for (size_t i = 0; i < bolas.size(); ++i) {
+        for (size_t j = i + 1; j < bolas.size(); ) {
+            if (resolutor.resolverBolaBola(bolas[i], bolas[j])) {
+                delete bolas[j];                    // liberar la bola absorbida
+                bolas.erase(bolas.begin() + j);     // y sacarla de la lista
+                // no se incrementa j: ahora en esa posición hay otra bola
+            } else {
+                ++j;
+            }
+        }
+    }
 
     // Bola - cuadrado
     for (Bola *bola : bolas)

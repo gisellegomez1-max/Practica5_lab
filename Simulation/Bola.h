@@ -16,6 +16,8 @@ public:
 
     double getRadio() const;
     double getMasa() const;
+    void setMasa(double m)  { masa = m; }
+    void setRadio(double r) { radio = r; }
     double energiaCinetica() const;
 
     void dibujar(QPainter *painter) const override;

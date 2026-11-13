@@ -14,6 +14,7 @@ VentanaSimulacion::VentanaSimulacion(QWidget *parent)
 {
     setFixedSize(ANCHO_VENTANA, ALTO_VENTANA);
     setWindowTitle("Simulación de colisiones");
+    setFocusPolicy(Qt::StrongFocus);
 
     simulador.inicializar();
     registro.abrirArchivo("resultados.csv"); // se crea en la carpeta de ejecución (build)
@@ -62,4 +63,29 @@ void VentanaSimulacion::paintEvent(QPaintEvent *evento)
 
     painter.setPen(Qt::black);
     painter.drawText(10, 20, QString("t = %1 s").arg(simulador.getTiempo(), 0, 'f', 2));
+}
+
+void VentanaSimulacion::keyPressEvent(QKeyEvent *evento)
+{
+    if (evento->key() == Qt::Key_R) {
+        reiniciar();
+    } else if (evento->key() == Qt::Key_P) {
+        if (temporizador->isActive()) pausar();
+        else iniciar();
+    } else {
+        QWidget::keyPressEvent(evento);
+    }
+}
+
+void VentanaSimulacion::reiniciar()
+{
+    temporizador->stop();
+
+    simulador.reiniciar();                  // limpia y vuelve a crear el escenario
+
+    registro.cerrarArchivo();               // archivo nuevo para la nueva corrida
+    registro.abrirArchivo("resultados.csv");
+
+    update();
+    temporizador->start(INTERVALO_MS);
 }

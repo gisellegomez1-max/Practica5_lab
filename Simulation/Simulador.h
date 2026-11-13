@@ -13,6 +13,7 @@ public:
     ~Simulador();
 
     void inicializar();
+    void reiniciar();
     void actualizar(double dt);
     void detectarColisiones();
 
