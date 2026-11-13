@@ -4,4 +4,11 @@ CONFIG -= app_bundle
 CONFIG -= qt
 
 SOURCES += \
-        main.cpp
+        cuadrado.cpp \
+        main.cpp \
+        resolutorcolisiones.cpp
+
+HEADERS += \
+    cuadrado.h \
+    entidad.h \
+    resolutorcolisiones.h
