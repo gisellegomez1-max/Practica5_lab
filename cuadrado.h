@@ -1,10 +1,17 @@
 #ifndef CUADRADO_H
 #define CUADRADO_H
+#include <QRectF>
+#include "entidad.h"
 
-class cuadrado
-{
+class Cuadrado : public Entidad {
 public:
-    cuadrado();
-};
+    // (x, y) = esquina superior izquierda
+    Cuadrado(double x, double y, double lado, QColor color = Qt::gray);
 
-#endif // CUADRADO_H
+    QRectF obtenerLimites() const;
+    void dibujar(QPainter* painter) override;
+
+private:
+    double lado;
+};
+#endif
